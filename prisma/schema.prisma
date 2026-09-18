@@ -1,0 +1,67 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id           String       @id @default(cuid())
+  email        String       @unique
+  passwordHash String
+  name         String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  medications  Medication[]
+  doseLogs     DoseLog[]
+}
+
+enum Importance {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+model Medication {
+  id                String     @id @default(cuid())
+  userId            String
+  user              User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name              String
+  type              String
+  times             String[]
+  daysOfWeek        Int[]
+  quantityAvailable Float
+  amountPerDose     Float
+  unit              String
+  medicalCondition  String?
+  importance        Importance @default(MEDIUM)
+  expiryDate        DateTime?
+  imagePath         String?
+  prescriptionPath  String?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+  doseLogs          DoseLog[]
+
+  @@index([userId])
+}
+
+model DoseLog {
+  id           String     @id @default(cuid())
+  medicationId String
+  medication   Medication @relation(fields: [medicationId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  scheduledFor DateTime
+  takenAt      DateTime   @default(now())
+
+  @@unique([medicationId, scheduledFor])
+  @@index([userId])
+}
