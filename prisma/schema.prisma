@@ -21,6 +21,7 @@ model User {
   updatedAt    DateTime     @updatedAt
   medications  Medication[]
   doseLogs     DoseLog[]
+  reminderLogs ReminderLog[]
 }
 
 enum Importance {
@@ -39,6 +40,7 @@ model Medication {
   times             String[]
   daysOfWeek        Int[]
   quantityAvailable Float
+  originalQuantity  Float
   amountPerDose     Float
   unit              String
   medicalCondition  String?
@@ -49,6 +51,7 @@ model Medication {
   createdAt         DateTime   @default(now())
   updatedAt         DateTime   @updatedAt
   doseLogs          DoseLog[]
+  reminderLogs      ReminderLog[]
 
   @@index([userId])
 }
@@ -61,6 +64,19 @@ model DoseLog {
   user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   scheduledFor DateTime
   takenAt      DateTime   @default(now())
+
+  @@unique([medicationId, scheduledFor])
+  @@index([userId])
+}
+
+model ReminderLog {
+  id           String     @id @default(cuid())
+  medicationId String
+  medication   Medication @relation(fields: [medicationId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  scheduledFor DateTime
+  sentAt       DateTime   @default(now())
 
   @@unique([medicationId, scheduledFor])
   @@index([userId])

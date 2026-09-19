@@ -143,6 +143,7 @@ export async function createMedication(
       userId,
       imagePath,
       prescriptionPath,
+      originalQuantity: rest.quantityAvailable,
       expiryDate: expiryDate ? new Date(expiryDate) : undefined,
     },
   });
@@ -197,6 +198,8 @@ export async function updateMedication(
   }
 
   const { expiryDate, ...rest } = parsed.data;
+  const stockChanged = rest.quantityAvailable !== existing.quantityAvailable;
+
   await prisma.medication.update({
     where: { id },
     data: {
@@ -204,6 +207,7 @@ export async function updateMedication(
       imagePath,
       prescriptionPath,
       expiryDate: expiryDate ? new Date(expiryDate) : null,
+      ...(stockChanged && { originalQuantity: rest.quantityAvailable }),
     },
   });
 

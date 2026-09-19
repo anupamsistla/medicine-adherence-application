@@ -18,7 +18,7 @@ export default async function DashboardPage() {
     select: { medicationId: true, scheduledFor: true },
   });
 
-  const next = getNextDose(medications, doseLogs, new Date());
+  const next = getNextDose(medications, doseLogs, new Date(), 1);
 
   return (
     <div style={{ maxWidth: 480, margin: "4rem auto" }}>
@@ -54,7 +54,7 @@ export default async function DashboardPage() {
             />
           </>
         ) : (
-          <p>Nothing due in the next 7 days.</p>
+          <p>Nothing left to take today.</p>
         )}
       </section>
 
