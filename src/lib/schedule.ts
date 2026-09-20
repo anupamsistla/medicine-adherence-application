@@ -10,80 +10,60 @@ function startOfDay(date: Date) {
   return d;
 }
 
-function nextOccurrenceForMedication(
-  medication: MedicationSchedule,
-  takenKeys: Set<string>,
-  now: Date,
-  searchDays: number
-): Date | null {
-  const today = startOfDay(now);
-  const sortedTimes = [...medication.times].sort();
-
-  for (let dayOffset = 0; dayOffset < searchDays; dayOffset++) {
-    const day = new Date(today);
-    day.setDate(day.getDate() + dayOffset);
-    const weekday = day.getDay();
-
-    if (
-      medication.daysOfWeek.length > 0 &&
-      !medication.daysOfWeek.includes(weekday)
-    ) {
-      continue;
-    }
-
-    for (const time of sortedTimes) {
-      const [hours, minutes] = time.split(":").map(Number);
-      const occurrence = new Date(day);
-      occurrence.setHours(hours, minutes, 0, 0);
-
-      const key = `${medication.id}|${occurrence.toISOString()}`;
-      if (takenKeys.has(key)) continue;
-
-      return occurrence;
-    }
-  }
-
-  return null;
+function occurrenceKey(medicationId: string, occurrence: Date) {
+  return `${medicationId}|${occurrence.toISOString()}`;
 }
 
-export function getNextDose<T extends MedicationSchedule>(
+/** All scheduled occurrences for one medication on one calendar day (midnight-aligned `day`). */
+function occurrencesForDay(medication: MedicationSchedule, day: Date): Date[] {
+  const weekday = day.getDay();
+  if (
+    medication.daysOfWeek.length > 0 &&
+    !medication.daysOfWeek.includes(weekday)
+  ) {
+    return [];
+  }
+
+  return [...medication.times].sort().map((time) => {
+    const [hours, minutes] = time.split(":").map(Number);
+    const occurrence = new Date(day);
+    occurrence.setHours(hours, minutes, 0, 0);
+    return occurrence;
+  });
+}
+
+export type DoseStatus = "taken" | "missed" | "upcoming";
+
+export type TodaysDose<T> = {
+  medication: T;
+  scheduledFor: Date;
+  status: DoseStatus;
+};
+
+/** Every dose scheduled for today, each labeled taken/missed/upcoming, in chronological order. */
+export function getTodaysDoses<T extends MedicationSchedule>(
   medications: T[],
   doseLogs: { medicationId: string; scheduledFor: Date }[],
-  now: Date,
-  searchDays = 7
-): { medication: T; scheduledFor: Date } | null {
+  now: Date
+): TodaysDose<T>[] {
   const takenKeys = new Set(
-    doseLogs.map(
-      (log) => `${log.medicationId}|${log.scheduledFor.toISOString()}`
-    )
+    doseLogs.map((log) => occurrenceKey(log.medicationId, log.scheduledFor))
   );
+  const today = startOfDay(now);
 
-  let best: { medication: T; scheduledFor: Date } | null = null;
-
+  const doses: TodaysDose<T>[] = [];
   for (const medication of medications) {
-    if (medication.times.length === 0) continue;
-    const occurrence = nextOccurrenceForMedication(
-      medication,
-      takenKeys,
-      now,
-      searchDays
-    );
-    if (occurrence && (!best || occurrence < best.scheduledFor)) {
-      best = { medication, scheduledFor: occurrence };
+    for (const occurrence of occurrencesForDay(medication, today)) {
+      const status: DoseStatus = takenKeys.has(
+        occurrenceKey(medication.id, occurrence)
+      )
+        ? "taken"
+        : occurrence < now
+          ? "missed"
+          : "upcoming";
+      doses.push({ medication, scheduledFor: occurrence, status });
     }
   }
 
-  return best;
-}
-
-export function formatScheduledFor(date: Date, now: Date = new Date()): string {
-  const today = startOfDay(now);
-  const target = startOfDay(date);
-  const diffDays = Math.round((target.getTime() - today.getTime()) / 86_400_000);
-  const timeStr = date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-  const overdueSuffix = date < now ? " (overdue)" : "";
-
-  if (diffDays === 0) return `Today at ${timeStr}${overdueSuffix}`;
-  if (diffDays === 1) return `Tomorrow at ${timeStr}`;
-  return `${date.toLocaleDateString([], { weekday: "long" })} at ${timeStr}`;
+  return doses.sort((a, b) => a.scheduledFor.getTime() - b.scheduledFor.getTime());
 }

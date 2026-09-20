@@ -4,6 +4,7 @@ import IORedis from "ioredis";
 import { prisma } from "../lib/prisma";
 import { sendEmail } from "../lib/email";
 import { getDueReminders } from "../lib/reminders";
+import { daysUntilExpiry, isExpiryAlertDue } from "../lib/expiry";
 
 const QUEUE_NAME = "medication-reminders";
 const POLL_INTERVAL_MS = 60_000;
@@ -75,17 +76,60 @@ async function checkAndSendReminders() {
   }
 }
 
+async function checkAndSendExpiryAlerts() {
+  const now = new Date();
+
+  const medications = await prisma.medication.findMany({
+    where: { expiryDate: { not: null } },
+    include: { user: { select: { email: true } } },
+  });
+
+  for (const medication of medications) {
+    if (!isExpiryAlertDue(medication, now)) continue;
+
+    try {
+      const days = daysUntilExpiry(medication.expiryDate!, now);
+      const status =
+        days > 0
+          ? `expires in ${days} day${days === 1 ? "" : "s"}`
+          : days === 0
+            ? "expires today"
+            : `expired ${-days} day${-days === 1 ? "" : "s"} ago`;
+
+      await sendEmail({
+        to: medication.user.email,
+        subject: `${days <= 0 ? "Expired" : "Expiring soon"}: ${medication.name}`,
+        text: `${medication.name} ${status} (${medication.expiryDate!.toLocaleDateString()}). Consider replacing it.`,
+      });
+
+      await prisma.medication.update({
+        where: { id: medication.id },
+        data: { lastExpiryAlertSentAt: now },
+      });
+
+      console.log(`Expiry alert sent: ${medication.name} -> ${medication.user.email}`);
+    } catch (error) {
+      console.error(`Failed to send expiry alert for ${medication.name}:`, error);
+    }
+  }
+}
+
+async function runChecks() {
+  await checkAndSendReminders();
+  await checkAndSendExpiryAlerts();
+}
+
 async function main() {
   await queue.upsertJobScheduler("reminder-poll", { every: POLL_INTERVAL_MS });
 
-  new Worker(QUEUE_NAME, () => checkAndSendReminders(), { connection });
+  new Worker(QUEUE_NAME, () => runChecks(), { connection });
 
   console.log(
     `Reminder worker started. Polling every ${POLL_INTERVAL_MS / 1000}s.`
   );
 
   // Run once immediately on startup rather than waiting for the first tick.
-  await checkAndSendReminders();
+  await runChecks();
 }
 
 main().catch((error) => {

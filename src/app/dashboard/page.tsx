@@ -1,16 +1,23 @@
 import Link from "next/link";
 import { auth, signOut } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { getNextDose, formatScheduledFor } from "@/lib/schedule";
+import { getTodaysDoses } from "@/lib/schedule";
 import { MarkAsTakenButton } from "./mark-as-taken-button";
+
+const STATUS_LABEL: Record<string, string> = {
+  taken: "✅ Taken",
+  missed: "⚠️ Missed",
+  upcoming: "⏳ Upcoming",
+};
 
 export default async function DashboardPage() {
   const session = await auth();
   const userId = session!.user.id;
+  const now = new Date();
 
   const medications = await prisma.medication.findMany({ where: { userId } });
 
-  const startOfToday = new Date();
+  const startOfToday = new Date(now);
   startOfToday.setHours(0, 0, 0, 0);
 
   const doseLogs = await prisma.doseLog.findMany({
@@ -18,7 +25,7 @@ export default async function DashboardPage() {
     select: { medicationId: true, scheduledFor: true },
   });
 
-  const next = getNextDose(medications, doseLogs, new Date(), 1);
+  const todaysDoses = getTodaysDoses(medications, doseLogs, now);
 
   return (
     <div style={{ maxWidth: 480, margin: "4rem auto" }}>
@@ -36,25 +43,55 @@ export default async function DashboardPage() {
           margin: "1.5rem 0",
         }}
       >
-        <h2>Next medicine to take</h2>
+        <h2>Today&apos;s schedule</h2>
+        <p>
+          Now:{" "}
+          {now.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
+        </p>
+
         {medications.length === 0 ? (
           <p>
             No medications yet. <Link href="/medications/new">Add one</Link>.
           </p>
-        ) : next ? (
-          <>
-            <p>
-              <strong>{next.medication.name}</strong> &middot;{" "}
-              {next.medication.amountPerDose} {next.medication.unit}
-            </p>
-            <p>Scheduled: {formatScheduledFor(next.scheduledFor)}</p>
-            <MarkAsTakenButton
-              medicationId={next.medication.id}
-              scheduledFor={next.scheduledFor.toISOString()}
-            />
-          </>
+        ) : todaysDoses.length === 0 ? (
+          <p>Nothing scheduled today.</p>
         ) : (
-          <p>Nothing left to take today.</p>
+          <ul style={{ listStyle: "none", padding: 0 }}>
+            {todaysDoses.map((dose, index) => (
+              <li
+                key={`${dose.medication.id}-${dose.scheduledFor.toISOString()}-${index}`}
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  gap: "0.5rem",
+                  padding: "0.5rem 0",
+                  borderTop: index === 0 ? undefined : "1px solid #eee",
+                }}
+              >
+                <span>
+                  {dose.medication.name} &middot;{" "}
+                  {dose.medication.amountPerDose} {dose.medication.unit}{" "}
+                  &middot;{" "}
+                  {dose.scheduledFor.toLocaleTimeString([], {
+                    hour: "numeric",
+                    minute: "2-digit",
+                  })}
+                </span>
+                {dose.status === "taken" ? (
+                  <span>{STATUS_LABEL[dose.status]}</span>
+                ) : (
+                  <span style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                    {STATUS_LABEL[dose.status]}
+                    <MarkAsTakenButton
+                      medicationId={dose.medication.id}
+                      scheduledFor={dose.scheduledFor.toISOString()}
+                    />
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
         )}
       </section>
 

@@ -16,5 +16,8 @@ export async function sendEmail({
   }
 
   const resend = new Resend(process.env.RESEND_API_KEY);
-  await resend.emails.send({ from, to, subject, text });
+  const { error } = await resend.emails.send({ from, to, subject, text });
+  if (error) {
+    throw new Error(`Resend rejected the email: ${error.message}`);
+  }
 }

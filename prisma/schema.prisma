@@ -13,12 +13,12 @@ datasource db {
 }
 
 model User {
-  id           String       @id @default(cuid())
-  email        String       @unique
+  id           String        @id @default(cuid())
+  email        String        @unique
   passwordHash String
   name         String?
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
   medications  Medication[]
   doseLogs     DoseLog[]
   reminderLogs ReminderLog[]
@@ -32,26 +32,27 @@ enum Importance {
 }
 
 model Medication {
-  id                String     @id @default(cuid())
-  userId            String
-  user              User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  name              String
-  type              String
-  times             String[]
-  daysOfWeek        Int[]
-  quantityAvailable Float
-  originalQuantity  Float
-  amountPerDose     Float
-  unit              String
-  medicalCondition  String?
-  importance        Importance @default(MEDIUM)
-  expiryDate        DateTime?
-  imagePath         String?
-  prescriptionPath  String?
-  createdAt         DateTime   @default(now())
-  updatedAt         DateTime   @updatedAt
-  doseLogs          DoseLog[]
-  reminderLogs      ReminderLog[]
+  id                    String        @id @default(cuid())
+  userId                String
+  user                  User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name                  String
+  type                  String
+  times                 String[]
+  daysOfWeek            Int[]
+  quantityAvailable     Float
+  originalQuantity      Float
+  amountPerDose         Float
+  unit                  String
+  medicalCondition      String?
+  importance            Importance    @default(MEDIUM)
+  expiryDate            DateTime?
+  lastExpiryAlertSentAt DateTime?
+  imagePath             String?
+  prescriptionPath      String?
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+  doseLogs              DoseLog[]
+  reminderLogs          ReminderLog[]
 
   @@index([userId])
 }

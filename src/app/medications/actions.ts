@@ -200,14 +200,19 @@ export async function updateMedication(
   const { expiryDate, ...rest } = parsed.data;
   const stockChanged = rest.quantityAvailable !== existing.quantityAvailable;
 
+  const newExpiryDate = expiryDate ? new Date(expiryDate) : null;
+  const expiryChanged =
+    newExpiryDate?.getTime() !== existing.expiryDate?.getTime();
+
   await prisma.medication.update({
     where: { id },
     data: {
       ...rest,
       imagePath,
       prescriptionPath,
-      expiryDate: expiryDate ? new Date(expiryDate) : null,
+      expiryDate: newExpiryDate,
       ...(stockChanged && { originalQuantity: rest.quantityAvailable }),
+      ...(expiryChanged && { lastExpiryAlertSentAt: null }),
     },
   });
 
