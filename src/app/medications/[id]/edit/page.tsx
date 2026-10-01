@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { AppNav } from "@/components/app-nav";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { updateMedication } from "../../actions";
 import { MedicationForm } from "../../medication-form";
 
@@ -18,13 +20,23 @@ export default async function EditMedicationPage({
   }
 
   return (
-    <div style={{ maxWidth: 480, margin: "2rem auto" }}>
-      <h1>Edit medication</h1>
-      <MedicationForm
-        action={updateMedication.bind(null, id)}
-        submitLabel="Save changes"
-        defaultValues={medication}
-      />
+    <div className="min-h-full bg-muted/30">
+      <AppNav userEmail={session?.user?.email} />
+
+      <main className="mx-auto max-w-2xl px-6 py-10">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-xl">Edit medication</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <MedicationForm
+              action={updateMedication.bind(null, id)}
+              submitLabel="Save changes"
+              defaultValues={medication}
+            />
+          </CardContent>
+        </Card>
+      </main>
     </div>
   );
 }

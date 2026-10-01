@@ -13,15 +13,18 @@ datasource db {
 }
 
 model User {
-  id           String        @id @default(cuid())
-  email        String        @unique
-  passwordHash String
-  name         String?
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  medications  Medication[]
-  doseLogs     DoseLog[]
-  reminderLogs ReminderLog[]
+  id                       String        @id @default(cuid())
+  email                    String        @unique
+  passwordHash             String
+  name                     String?
+  reminderMinutesBefore    Int           @default(15)
+  lowStockThresholdPercent Int           @default(10)
+  expiryAlertDaysBefore    Int           @default(7)
+  createdAt                DateTime      @default(now())
+  updatedAt                DateTime      @updatedAt
+  medications              Medication[]
+  doseLogs                 DoseLog[]
+  reminderLogs             ReminderLog[]
 }
 
 enum Importance {

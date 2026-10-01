@@ -1,9 +1,9 @@
 "use client";
 
 import { useTransition } from "react";
+import { Button } from "@/components/ui/button";
+import { DOSE_TIMING_WINDOW_MINUTES } from "@/lib/schedule";
 import { logDoseTaken } from "./actions";
-
-const WARNING_WINDOW_MINUTES = 30;
 
 export function MarkAsTakenButton({
   medicationId,
@@ -17,16 +17,14 @@ export function MarkAsTakenButton({
   function handleClick() {
     const diffMinutes = (Date.now() - new Date(scheduledFor).getTime()) / 60_000;
 
-    if (diffMinutes < -WARNING_WINDOW_MINUTES) {
+    // Only the early case still interrupts with a confirmation — taking a
+    // dose "early" risks double-dosing, which is worth a pause. A late
+    // dose carries no such risk, so it's just logged and the timing shows
+    // up in adherence history instead of blocking the click.
+    if (diffMinutes < -DOSE_TIMING_WINDOW_MINUTES) {
       const minutesEarly = Math.round(-diffMinutes);
       const confirmed = confirm(
         `It's ${minutesEarly} minutes before this dose is scheduled. Are you sure you've taken it already?`
-      );
-      if (!confirmed) return;
-    } else if (diffMinutes > WARNING_WINDOW_MINUTES) {
-      const minutesLate = Math.round(diffMinutes);
-      const confirmed = confirm(
-        `It's ${minutesLate} minutes after this dose was scheduled. Mark it as taken anyway?`
       );
       if (!confirmed) return;
     }
@@ -37,8 +35,8 @@ export function MarkAsTakenButton({
   }
 
   return (
-    <button onClick={handleClick} disabled={pending}>
+    <Button onClick={handleClick} disabled={pending} size="sm">
       Mark as taken
-    </button>
+    </Button>
   );
 }

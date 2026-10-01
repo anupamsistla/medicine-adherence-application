@@ -1,5 +1,8 @@
 "use client";
 
+import { Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+
 export function DeleteMedicationButton({
   action,
 }: {
@@ -12,7 +15,10 @@ export function DeleteMedicationButton({
         if (!confirm("Delete this medication?")) event.preventDefault();
       }}
     >
-      <button type="submit">Delete</button>
+      <Button type="submit" variant="ghost" size="sm" className="text-destructive">
+        <Trash2 className="size-3.5" />
+        Delete
+      </Button>
     </form>
   );
 }

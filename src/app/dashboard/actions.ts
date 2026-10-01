@@ -5,15 +5,15 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/email";
 
-const LOW_STOCK_THRESHOLD_RATIO = 0.1;
-
 export async function logDoseTaken(medicationId: string, scheduledForIso: string) {
   const session = await auth();
   if (!session?.user?.id) return;
 
   const medication = await prisma.medication.findUnique({
     where: { id: medicationId },
-    include: { user: { select: { email: true } } },
+    include: {
+      user: { select: { email: true, lowStockThresholdPercent: true } },
+    },
   });
   if (!medication || medication.userId !== session.user.id) return;
 
@@ -33,7 +33,8 @@ export async function logDoseTaken(medicationId: string, scheduledForIso: string
   );
 
   const shouldAlert =
-    newQuantity <= medication.originalQuantity * LOW_STOCK_THRESHOLD_RATIO;
+    newQuantity <=
+    medication.originalQuantity * (medication.user.lowStockThresholdPercent / 100);
 
   await prisma.$transaction([
     prisma.doseLog.create({

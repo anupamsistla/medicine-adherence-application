@@ -1,8 +1,20 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { Plus, X, FileText } from "lucide-react";
 import type { Medication } from "@/generated/prisma/client";
 import { DAYS_OF_WEEK } from "@/lib/days";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { MedicationFormState } from "./actions";
 
 type MedicationFormProps = {
@@ -36,12 +48,36 @@ const UNIT_OPTIONS = [
   "spray",
 ];
 
+const IMPORTANCE_OPTIONS = [
+  { value: "LOW", label: "Low" },
+  { value: "MEDIUM", label: "Medium" },
+  { value: "HIGH", label: "High" },
+  { value: "CRITICAL", label: "Critical" },
+];
+
 function todayDateString() {
   const now = new Date();
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, "0");
   const day = String(now.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+function Field({
+  label,
+  htmlFor,
+  children,
+}: {
+  label: string;
+  htmlFor?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <Label htmlFor={htmlFor}>{label}</Label>
+      {children}
+    </div>
+  );
 }
 
 export function MedicationForm({
@@ -64,15 +100,13 @@ export function MedicationForm({
     : "";
 
   return (
-    <form action={formAction}>
-      <div>
-        <label htmlFor="name">Medicine name</label>
-        <input id="name" name="name" defaultValue={defaultValues?.name} required />
-      </div>
+    <form action={formAction} className="flex flex-col gap-6">
+      <Field label="Medicine name" htmlFor="name">
+        <Input id="name" name="name" defaultValue={defaultValues?.name} required />
+      </Field>
 
-      <div>
-        <label htmlFor="type">Type</label>
-        <input
+      <Field label="Type" htmlFor="type">
+        <Input
           id="type"
           name="type"
           list="medicine-types"
@@ -85,100 +119,123 @@ export function MedicationForm({
             <option key={t} value={t} />
           ))}
         </datalist>
-      </div>
+      </Field>
 
-      <fieldset>
-        <legend>Time(s) to take</legend>
-        {times.map((time, index) => (
-          <div key={index}>
-            <input
-              type="time"
-              name="times"
-              value={time}
-              onChange={(event) => {
-                const next = [...times];
-                next[index] = event.target.value;
-                setTimes(next);
-              }}
-              required
-            />
-            {times.length > 1 && (
-              <button
-                type="button"
-                onClick={() => setTimes(times.filter((_, i) => i !== index))}
-              >
-                Remove
-              </button>
-            )}
-          </div>
-        ))}
-        <button type="button" onClick={() => setTimes([...times, ""])}>
-          Add another time
-        </button>
-      </fieldset>
-
-      <fieldset>
-        <legend>Day(s) to take (leave all unchecked for every day)</legend>
-        {DAYS_OF_WEEK.map((day) => (
-          <label key={day.value} style={{ display: "block" }}>
-            <input
-              type="checkbox"
-              name="daysOfWeek"
-              value={day.value}
-              defaultChecked={defaultValues?.daysOfWeek.includes(day.value)}
-            />
-            {day.label}
-          </label>
-        ))}
-      </fieldset>
-
-      <div>
-        <label htmlFor="amountPerDose">Amount to consume per dose</label>
-        <input
-          id="amountPerDose"
-          name="amountPerDose"
-          type="number"
-          step="any"
-          min="0.01"
-          defaultValue={defaultValues?.amountPerDose}
-          required
-        />
-      </div>
-
-      <div>
-        <label htmlFor="unit">Unit</label>
-        <select
-          id="unit"
-          value={unitChoice}
-          onChange={(event) => setUnitChoice(event.target.value)}
-        >
-          {UNIT_OPTIONS.map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
+      <div className="flex flex-col gap-2">
+        <Label>Time(s) to take</Label>
+        <div className="flex flex-col gap-2">
+          {times.map((time, index) => (
+            <div key={index} className="flex items-center gap-2">
+              <Input
+                type="time"
+                name="times"
+                value={time}
+                onChange={(event) => {
+                  const next = [...times];
+                  next[index] = event.target.value;
+                  setTimes(next);
+                }}
+                required
+                className="w-40"
+              />
+              {times.length > 1 && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={() => setTimes(times.filter((_, i) => i !== index))}
+                >
+                  <X className="size-4" />
+                </Button>
+              )}
+            </div>
           ))}
-          <option value="OTHER">Other...</option>
-        </select>
-        {unitChoice === "OTHER" ? (
-          <input
-            key="unit-custom"
-            name="unit"
-            placeholder="Enter a custom unit"
-            defaultValue={
-              defaultValues && !UNIT_OPTIONS.includes(defaultValues.unit)
-                ? defaultValues.unit
-                : ""
-            }
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="w-fit"
+          onClick={() => setTimes([...times, ""])}
+        >
+          <Plus className="size-3.5" />
+          Add another time
+        </Button>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <Label>Day(s) to take</Label>
+        <p className="text-sm text-muted-foreground">
+          Leave all unchecked for every day.
+        </p>
+        <div className="flex flex-wrap gap-x-4 gap-y-2">
+          {DAYS_OF_WEEK.map((day) => (
+            <label
+              key={day.value}
+              className="flex items-center gap-2 text-sm font-normal"
+            >
+              <Checkbox
+                name="daysOfWeek"
+                value={String(day.value)}
+                defaultChecked={defaultValues?.daysOfWeek.includes(day.value)}
+              />
+              {day.label}
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="Amount to consume per dose" htmlFor="amountPerDose">
+          <Input
+            id="amountPerDose"
+            name="amountPerDose"
+            type="number"
+            step="any"
+            min="0.01"
+            defaultValue={defaultValues?.amountPerDose}
             required
           />
-        ) : (
-          <input key="unit-preset" type="hidden" name="unit" value={unitChoice} />
-        )}
+        </Field>
+
+        <Field label="Unit">
+          <Select
+            value={unitChoice}
+            onValueChange={(value) => value && setUnitChoice(value)}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {UNIT_OPTIONS.map((option) => (
+                <SelectItem key={option} value={option}>
+                  {option}
+                </SelectItem>
+              ))}
+              <SelectItem value="OTHER">Other...</SelectItem>
+            </SelectContent>
+          </Select>
+          {unitChoice === "OTHER" ? (
+            <Input
+              key="unit-custom"
+              name="unit"
+              placeholder="Enter a custom unit"
+              defaultValue={
+                defaultValues && !UNIT_OPTIONS.includes(defaultValues.unit)
+                  ? defaultValues.unit
+                  : ""
+              }
+              required
+              className="mt-2"
+            />
+          ) : (
+            <input key="unit-preset" type="hidden" name="unit" value={unitChoice} />
+          )}
+        </Field>
       </div>
 
-      <div>
-        <label htmlFor="quantityAvailable">Quantity available (current stock)</label>
-        <input
+      <Field label="Quantity available (current stock)" htmlFor="quantityAvailable">
+        <Input
           id="quantityAvailable"
           name="quantityAvailable"
           type="number"
@@ -187,80 +244,86 @@ export function MedicationForm({
           defaultValue={defaultValues?.quantityAvailable}
           required
         />
-      </div>
+      </Field>
 
-      <div>
-        <label htmlFor="medicalCondition">Medical condition</label>
-        <input
+      <Field label="Medical condition" htmlFor="medicalCondition">
+        <Input
           id="medicalCondition"
           name="medicalCondition"
           defaultValue={defaultValues?.medicalCondition ?? ""}
         />
+      </Field>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="Importance">
+          <Select name="importance" defaultValue={defaultValues?.importance ?? "MEDIUM"}>
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {IMPORTANCE_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
+
+        <Field label="Expiry date" htmlFor="expiryDate">
+          <Input
+            id="expiryDate"
+            name="expiryDate"
+            type="date"
+            defaultValue={expiryDateValue}
+            min={todayDateString()}
+          />
+        </Field>
       </div>
 
-      <div>
-        <label htmlFor="importance">Importance</label>
-        <select
-          id="importance"
-          name="importance"
-          defaultValue={defaultValues?.importance ?? "MEDIUM"}
-        >
-          <option value="LOW">Low</option>
-          <option value="MEDIUM">Medium</option>
-          <option value="HIGH">High</option>
-          <option value="CRITICAL">Critical</option>
-        </select>
-      </div>
-
-      <div>
-        <label htmlFor="expiryDate">Expiry date</label>
-        <input
-          id="expiryDate"
-          name="expiryDate"
-          type="date"
-          defaultValue={expiryDateValue}
-          min={todayDateString()}
-        />
-      </div>
-
-      <div>
-        <label htmlFor="image">Medicine image</label>
+      <Field label="Medicine image" htmlFor="image">
         {defaultValues?.imagePath && (
-          <div>
-            <img
-              src={defaultValues.imagePath}
-              alt={defaultValues.name}
-              width={80}
-              height={80}
-              style={{ objectFit: "cover" }}
-            />
-          </div>
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={defaultValues.imagePath}
+            alt={defaultValues.name}
+            width={80}
+            height={80}
+            className="size-20 rounded-lg object-cover ring-1 ring-foreground/10"
+          />
         )}
-        <input id="image" name="image" type="file" accept="image/*" />
-      </div>
+        <Input id="image" name="image" type="file" accept="image/*" />
+      </Field>
 
-      <div>
-        <label htmlFor="prescription">Prescription</label>
+      <Field label="Prescription" htmlFor="prescription">
         {defaultValues?.prescriptionPath && (
-          <p>
-            <a href={defaultValues.prescriptionPath} target="_blank" rel="noreferrer">
-              View current prescription
-            </a>
-          </p>
+          <a
+            href={defaultValues.prescriptionPath}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex w-fit items-center gap-1 text-sm text-primary hover:underline"
+          >
+            <FileText className="size-3.5" />
+            View current prescription
+          </a>
         )}
-        <input
+        <Input
           id="prescription"
           name="prescription"
           type="file"
           accept="image/*,application/pdf"
         />
-      </div>
+      </Field>
 
-      {state?.error && <p role="alert">{state.error}</p>}
+      {state?.error && (
+        <p role="alert" className="text-sm text-destructive">
+          {state.error}
+        </p>
+      )}
 
-      <button disabled={pending} type="submit">
+      <Button disabled={pending} type="submit">
         {submitLabel}
-      </button>
+      </Button>
     </form>
   );
 }
