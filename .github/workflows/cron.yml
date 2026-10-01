@@ -1,0 +1,21 @@
+name: Reminder checks
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger reminder/expiry checks
+        run: |
+          status=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "https://medtrack.anupamsistla.com/api/cron/check")
+          echo "Response status: $status"
+          if [ "$status" != "200" ]; then
+            echo "Cron check failed with status $status"
+            exit 1
+          fi

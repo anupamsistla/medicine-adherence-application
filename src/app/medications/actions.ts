@@ -1,8 +1,7 @@
 "use server";
 
 import { randomUUID } from "node:crypto";
-import { mkdir, unlink, writeFile } from "node:fs/promises";
-import path from "node:path";
+import { del, put } from "@vercel/blob";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import * as z from "zod";
@@ -94,16 +93,13 @@ async function saveUploadIfPresent(
   }
 
   const filename = `${randomUUID()}.${extension}`;
-  const uploadDir = path.join(process.cwd(), "public", "uploads");
-  await mkdir(uploadDir, { recursive: true });
-  const bytes = Buffer.from(await file.arrayBuffer());
-  await writeFile(path.join(uploadDir, filename), bytes);
+  const blob = await put(filename, file, { access: "public" });
 
-  return `/uploads/${filename}`;
+  return blob.url;
 }
 
-async function deleteUploadedFile(filePath: string) {
-  await unlink(path.join(process.cwd(), "public", filePath)).catch(() => {});
+async function deleteUploadedFile(url: string) {
+  await del(url).catch(() => {});
 }
 
 export async function createMedication(
