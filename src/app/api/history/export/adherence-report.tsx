@@ -1,5 +1,6 @@
 import { Document, Page, View, Text, StyleSheet } from "@react-pdf/renderer";
 import { formatDoseTiming, type TodaysDose } from "@/lib/schedule";
+import { formatDay, formatTime } from "@/lib/timezone";
 
 const styles = StyleSheet.create({
   page: { padding: 32, fontSize: 10, fontFamily: "Helvetica" },
@@ -48,12 +49,14 @@ export function AdherenceReportDocument({
   medicationLabel,
   generatedAt,
   doses,
+  timeZone,
 }: {
   patientName: string;
   periodLabel: string;
   medicationLabel: string;
   generatedAt: Date;
   doses: DoseWithName[];
+  timeZone: string;
 }) {
   return (
     <Document>
@@ -63,7 +66,7 @@ export function AdherenceReportDocument({
         <Text style={styles.subtitle}>{medicationLabel}</Text>
         <Text style={styles.meta}>
           Generated{" "}
-          {generatedAt.toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}
+          {generatedAt.toLocaleString([], { dateStyle: "medium", timeStyle: "short", timeZone })}
         </Text>
 
         {doses.length === 0 ? (
@@ -81,17 +84,14 @@ export function AdherenceReportDocument({
             {doses.map((dose, index) => (
               <View key={index} style={styles.row} wrap={false}>
                 <Text style={[styles.cell, styles.colDate]}>
-                  {dose.scheduledFor.toLocaleDateString([], {
+                  {formatDay(dose.scheduledFor, timeZone, {
                     month: "short",
                     day: "numeric",
                     year: "numeric",
                   })}
                 </Text>
                 <Text style={[styles.cell, styles.colTime]}>
-                  {dose.scheduledFor.toLocaleTimeString([], {
-                    hour: "numeric",
-                    minute: "2-digit",
-                  })}
+                  {formatTime(dose.scheduledFor, timeZone)}
                 </Text>
                 <Text style={[styles.cell, styles.colMedicine]}>
                   {dose.medication.name}

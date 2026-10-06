@@ -20,6 +20,7 @@ model User {
   reminderMinutesBefore    Int           @default(15)
   lowStockThresholdPercent Int           @default(10)
   expiryAlertDaysBefore    Int           @default(7)
+  timeZone                 String        @default("UTC")
   createdAt                DateTime      @default(now())
   updatedAt                DateTime      @updatedAt
   medications              Medication[]

@@ -2,25 +2,28 @@ import { prisma } from "./prisma";
 import { sendEmail } from "./email";
 import { getDueReminders } from "./reminders";
 import { daysUntilExpiry, isExpiryAlertDue } from "./expiry";
+import { formatDay, formatTime } from "./timezone";
 
 const POLL_INTERVAL_MS = 60_000;
+const LOOKBACK_MS = 2 * 24 * 60 * 60 * 1000;
 
 export async function checkAndSendReminders() {
   const now = new Date();
-  const startOfToday = new Date(now);
-  startOfToday.setHours(0, 0, 0, 0);
+  const since = new Date(now.getTime() - LOOKBACK_MS);
 
   const medications = await prisma.medication.findMany({
-    include: { user: { select: { email: true, reminderMinutesBefore: true } } },
+    include: {
+      user: { select: { email: true, reminderMinutesBefore: true, timeZone: true } },
+    },
   });
 
   const [doseLogs, reminderLogs] = await Promise.all([
     prisma.doseLog.findMany({
-      where: { scheduledFor: { gte: startOfToday } },
+      where: { scheduledFor: { gte: since } },
       select: { medicationId: true, scheduledFor: true },
     }),
     prisma.reminderLog.findMany({
-      where: { scheduledFor: { gte: startOfToday } },
+      where: { scheduledFor: { gte: since } },
       select: { medicationId: true, scheduledFor: true },
     }),
   ]);
@@ -39,26 +42,25 @@ export async function checkAndSendReminders() {
     medicationsByUser.set(medication.userId, list);
   }
 
-  const due = Array.from(medicationsByUser.values()).flatMap((userMedications) =>
-    getDueReminders(
+  const due = Array.from(medicationsByUser.values()).flatMap((userMedications) => {
+    const { reminderMinutesBefore, timeZone } = userMedications[0].user;
+    return getDueReminders(
       userMedications,
       takenKeys,
       remindedKeys,
       now,
       POLL_INTERVAL_MS,
-      userMedications[0].user.reminderMinutesBefore
-    )
-  );
+      timeZone,
+      reminderMinutesBefore
+    ).map((reminder) => ({ ...reminder, timeZone }));
+  });
 
-  for (const { medication, scheduledFor } of due) {
+  for (const { medication, scheduledFor, timeZone } of due) {
     try {
       await sendEmail({
         to: medication.user.email,
         subject: `Reminder: take ${medication.name} soon`,
-        text: `This is a reminder to take ${medication.amountPerDose} ${medication.unit} of ${medication.name} at ${scheduledFor.toLocaleTimeString(
-          [],
-          { hour: "numeric", minute: "2-digit" }
-        )}.`,
+        text: `This is a reminder to take ${medication.amountPerDose} ${medication.unit} of ${medication.name} at ${formatTime(scheduledFor, timeZone)}.`,
       });
 
       await prisma.reminderLog.upsert({
@@ -81,16 +83,19 @@ export async function checkAndSendExpiryAlerts() {
 
   const medications = await prisma.medication.findMany({
     where: { expiryDate: { not: null } },
-    include: { user: { select: { email: true, expiryAlertDaysBefore: true } } },
+    include: {
+      user: { select: { email: true, expiryAlertDaysBefore: true, timeZone: true } },
+    },
   });
 
   for (const medication of medications) {
-    if (!isExpiryAlertDue(medication, now, medication.user.expiryAlertDaysBefore)) {
+    const { email, expiryAlertDaysBefore, timeZone } = medication.user;
+    if (!isExpiryAlertDue(medication, now, timeZone, expiryAlertDaysBefore)) {
       continue;
     }
 
     try {
-      const days = daysUntilExpiry(medication.expiryDate!, now);
+      const days = daysUntilExpiry(medication.expiryDate!, now, timeZone);
       const status =
         days > 0
           ? `expires in ${days} day${days === 1 ? "" : "s"}`
@@ -99,9 +104,9 @@ export async function checkAndSendExpiryAlerts() {
             : `expired ${-days} day${-days === 1 ? "" : "s"} ago`;
 
       await sendEmail({
-        to: medication.user.email,
+        to: email,
         subject: `${days <= 0 ? "Expired" : "Expiring soon"}: ${medication.name}`,
-        text: `${medication.name} ${status} (${medication.expiryDate!.toLocaleDateString()}). Consider replacing it.`,
+        text: `${medication.name} ${status} (${formatDay(medication.expiryDate!, timeZone)}). Consider replacing it.`,
       });
 
       await prisma.medication.update({
@@ -109,7 +114,7 @@ export async function checkAndSendExpiryAlerts() {
         data: { lastExpiryAlertSentAt: now },
       });
 
-      console.log(`Expiry alert sent: ${medication.name} -> ${medication.user.email}`);
+      console.log(`Expiry alert sent: ${medication.name} -> ${email}`);
     } catch (error) {
       console.error(`Failed to send expiry alert for ${medication.name}:`, error);
     }

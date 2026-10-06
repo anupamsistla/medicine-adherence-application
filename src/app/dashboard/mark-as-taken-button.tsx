@@ -17,7 +17,7 @@ export function MarkAsTakenButton({
   function handleClick() {
     const diffMinutes = (Date.now() - new Date(scheduledFor).getTime()) / 60_000;
 
-    // Only the early case still interrupts with a confirmation — taking a
+    // Only the early case still interrupts with a confirmation. Taking a
     // dose "early" risks double-dosing, which is worth a pause. A late
     // dose carries no such risk, so it's just logged and the timing shows
     // up in adherence history instead of blocking the click.

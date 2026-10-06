@@ -7,16 +7,11 @@ import { redirect } from "next/navigation";
 import * as z from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { dayKey, parseDateInput } from "@/lib/timezone";
+import { getUserTimeZone } from "@/lib/user-timezone";
 
-function todayDateString() {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-const medicationSchema = z
+function medicationSchema(timeZone: string) {
+  return z
   .object({
     name: z.string().trim().min(1, { error: "Name is required." }),
     type: z.string().trim().min(1, { error: "Type is required." }),
@@ -36,9 +31,10 @@ const medicationSchema = z
     expiryDate: z.string().optional(),
   })
   .refine(
-    (data) => !data.expiryDate || data.expiryDate >= todayDateString(),
+    (data) => !data.expiryDate || data.expiryDate >= dayKey(new Date(), timeZone),
     { error: "Expiry date cannot be in the past.", path: ["expiryDate"] }
   );
+}
 
 export type MedicationFormState = { error?: string } | undefined;
 
@@ -48,8 +44,8 @@ async function requireUserId() {
   return session.user.id;
 }
 
-function parseMedicationForm(formData: FormData) {
-  return medicationSchema.safeParse({
+function parseMedicationForm(formData: FormData, timeZone: string) {
+  return medicationSchema(timeZone).safeParse({
     name: formData.get("name"),
     type: formData.get("type"),
     times: formData.getAll("times"),
@@ -107,8 +103,9 @@ export async function createMedication(
   formData: FormData
 ): Promise<MedicationFormState> {
   const userId = await requireUserId();
+  const timeZone = await getUserTimeZone(userId);
 
-  const parsed = parseMedicationForm(formData);
+  const parsed = parseMedicationForm(formData, timeZone);
   if (!parsed.success) {
     return { error: parsed.error.issues.map((issue) => issue.message).join(" ") };
   }
@@ -140,7 +137,7 @@ export async function createMedication(
       imagePath,
       prescriptionPath,
       originalQuantity: rest.quantityAvailable,
-      expiryDate: expiryDate ? new Date(expiryDate) : undefined,
+      expiryDate: expiryDate ? parseDateInput(expiryDate, timeZone) : undefined,
     },
   });
 
@@ -154,13 +151,14 @@ export async function updateMedication(
   formData: FormData
 ): Promise<MedicationFormState> {
   const userId = await requireUserId();
+  const timeZone = await getUserTimeZone(userId);
 
   const existing = await prisma.medication.findUnique({ where: { id } });
   if (!existing || existing.userId !== userId) {
     return { error: "Medication not found." };
   }
 
-  const parsed = parseMedicationForm(formData);
+  const parsed = parseMedicationForm(formData, timeZone);
   if (!parsed.success) {
     return { error: parsed.error.issues.map((issue) => issue.message).join(" ") };
   }
@@ -196,7 +194,7 @@ export async function updateMedication(
   const { expiryDate, ...rest } = parsed.data;
   const stockChanged = rest.quantityAvailable !== existing.quantityAvailable;
 
-  const newExpiryDate = expiryDate ? new Date(expiryDate) : null;
+  const newExpiryDate = expiryDate ? parseDateInput(expiryDate, timeZone) : null;
   const expiryChanged =
     newExpiryDate?.getTime() !== existing.expiryDate?.getTime();
 

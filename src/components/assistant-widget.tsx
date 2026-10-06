@@ -1,10 +1,11 @@
 "use client";
 
 import { useRef, useState, useTransition, useEffect } from "react";
-import { Bot, X, Send } from "lucide-react";
+import { Stethoscope, X, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { askAdherenceAssistant, type ChatMessage } from "@/app/assistant-actions";
+import { Markdown } from "@/components/markdown";
 
 export function AssistantWidget() {
   const [isOpen, setIsOpen] = useState(false);
@@ -39,7 +40,7 @@ export function AssistantWidget() {
         <div className="flex h-110 w-90 max-w-[calc(100vw-3rem)] flex-col overflow-hidden rounded-xl border bg-card shadow-xl">
           <div className="flex items-center justify-between border-b px-4 py-3">
             <div className="flex items-center gap-2">
-              <Bot className="size-4 text-primary" />
+              <Stethoscope className="size-4 text-primary" />
               <p className="text-sm font-medium">Adherence assistant</p>
             </div>
             <button
@@ -62,13 +63,13 @@ export function AssistantWidget() {
             {messages.map((message, index) => (
               <div
                 key={index}
-                className={`max-w-[85%] rounded-lg px-3 py-2 text-sm whitespace-pre-wrap ${
+                className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${
                   message.role === "user"
-                    ? "ml-auto bg-primary text-primary-foreground"
+                    ? "ml-auto whitespace-pre-wrap bg-primary text-primary-foreground"
                     : "bg-muted text-foreground"
                 }`}
               >
-                {message.content}
+                {message.role === "user" ? message.content : <Markdown>{message.content}</Markdown>}
               </div>
             ))}
             {isPending && (
@@ -92,13 +93,19 @@ export function AssistantWidget() {
         </div>
       )}
 
+      {!isOpen && (
+        <span className="pointer-events-none absolute right-0 bottom-full mb-3 rounded-full border border-primary/50 bg-card/90 px-4 py-2 text-sm font-medium whitespace-nowrap text-foreground shadow-lg backdrop-blur-sm motion-safe:animate-pulse">
+          Ask your adherence assistant anything
+        </span>
+      )}
+
       <button
         type="button"
         onClick={() => setIsOpen((open) => !open)}
         className="flex size-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform hover:scale-105"
         aria-label={isOpen ? "Close adherence assistant" : "Open adherence assistant"}
       >
-        <Bot className="size-6" />
+        <Stethoscope className="size-6" />
       </button>
     </div>
   );

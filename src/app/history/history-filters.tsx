@@ -9,6 +9,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toDateParam, withYear, type Period } from "@/lib/history-period";
+import { getZonedParts } from "@/lib/timezone";
 
 type MedicationOption = { id: string; name: string };
 
@@ -17,12 +18,14 @@ const ALL_MEDICATIONS = "ALL";
 export function HistoryFilters({
   period,
   focusDate,
+  timeZone,
   medicationId,
   medications,
   yearOptions,
 }: {
   period: Period;
   focusDate: Date;
+  timeZone: string;
   medicationId?: string;
   medications: MedicationOption[];
   yearOptions: number[];
@@ -30,14 +33,14 @@ export function HistoryFilters({
   const router = useRouter();
 
   function navigate(next: { medicationId?: string; year?: number }) {
-    const date = next.year !== undefined ? withYear(focusDate, next.year) : focusDate;
+    const date = next.year !== undefined ? withYear(focusDate, next.year, timeZone) : focusDate;
     // "medicationId" in next distinguishes "explicitly clearing the filter"
     // (medicationId: undefined, from picking "All medications") from "this
     // call didn't touch the filter at all" (e.g. the year selector), which
-    // `next.medicationId !== undefined` can't tell apart — both look undefined.
+    // `next.medicationId !== undefined` can't tell apart, since both look undefined.
     const nextMedicationId = "medicationId" in next ? next.medicationId : medicationId;
 
-    const params = new URLSearchParams({ period, date: toDateParam(date) });
+    const params = new URLSearchParams({ period, date: toDateParam(date, timeZone) });
     if (nextMedicationId) params.set("medicationId", nextMedicationId);
     router.push(`/history?${params.toString()}`);
   }
@@ -78,7 +81,7 @@ export function HistoryFilters({
         <span className="text-sm text-muted-foreground">Year</span>
         <Select
           items={yearOptions.map((year) => ({ label: String(year), value: String(year) }))}
-          value={String(focusDate.getFullYear())}
+          value={String(getZonedParts(focusDate, timeZone).year)}
           onValueChange={(value) => value && navigate({ year: Number(value) })}
         >
           <SelectTrigger className="w-24">

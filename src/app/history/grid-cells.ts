@@ -1,4 +1,5 @@
 import type { DayAdherence } from "@/lib/schedule";
+import { getZonedParts } from "@/lib/timezone";
 
 export type GridCell = {
   key: string;
@@ -18,13 +19,13 @@ export function buildMonthCells(
   dayBuckets: DayAdherence[],
   year: number,
   month: number,
+  timeZone: string,
   buildDayHref: (dayOfMonth: number) => string
 ): GridCell[] {
-  const byDay = new Map(dayBuckets.map((b) => [b.date.getDate(), b]));
+  const byDay = new Map(dayBuckets.map((b) => [getZonedParts(b.date, timeZone).day, b]));
 
-  const firstOfMonth = new Date(year, month, 1);
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const leadingBlanks = (firstOfMonth.getDay() + 6) % 7; // Monday-first
+  const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+  const leadingBlanks = (new Date(Date.UTC(year, month, 1)).getUTCDay() + 6) % 7; // Monday-first
 
   const cells: GridCell[] = Array.from({ length: leadingBlanks }, () => null);
 

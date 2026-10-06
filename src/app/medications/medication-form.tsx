@@ -16,6 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { MedicationFormState } from "./actions";
+import { dayKey } from "@/lib/timezone";
 
 type MedicationFormProps = {
   action: (
@@ -24,6 +25,7 @@ type MedicationFormProps = {
   ) => Promise<MedicationFormState>;
   submitLabel: string;
   defaultValues?: Medication;
+  timeZone: string;
 };
 
 const MEDICINE_TYPES = [
@@ -55,12 +57,8 @@ const IMPORTANCE_OPTIONS = [
   { value: "CRITICAL", label: "Critical" },
 ];
 
-function todayDateString() {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+function todayDateString(timeZone: string) {
+  return dayKey(new Date(), timeZone);
 }
 
 function Field({
@@ -84,6 +82,7 @@ export function MedicationForm({
   action,
   submitLabel,
   defaultValues,
+  timeZone,
 }: MedicationFormProps) {
   const [state, formAction, pending] = useActionState(action, undefined);
   const [times, setTimes] = useState<string[]>(
@@ -96,7 +95,7 @@ export function MedicationForm({
   );
 
   const expiryDateValue = defaultValues?.expiryDate
-    ? new Date(defaultValues.expiryDate).toISOString().slice(0, 10)
+    ? dayKey(defaultValues.expiryDate, timeZone)
     : "";
 
   return (
@@ -276,7 +275,7 @@ export function MedicationForm({
             name="expiryDate"
             type="date"
             defaultValue={expiryDateValue}
-            min={todayDateString()}
+            min={todayDateString(timeZone)}
           />
         </Field>
       </div>

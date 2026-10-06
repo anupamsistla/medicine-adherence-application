@@ -5,6 +5,7 @@ import { AppNav } from "@/components/app-nav";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { updateMedication } from "../../actions";
 import { MedicationForm } from "../../medication-form";
+import { getUserTimeZone } from "@/lib/user-timezone";
 
 export default async function EditMedicationPage({
   params,
@@ -18,6 +19,7 @@ export default async function EditMedicationPage({
   if (!medication || medication.userId !== session?.user.id) {
     notFound();
   }
+  const timeZone = await getUserTimeZone(medication.userId);
 
   return (
     <div className="min-h-full bg-muted/30">
@@ -33,6 +35,7 @@ export default async function EditMedicationPage({
               action={updateMedication.bind(null, id)}
               submitLabel="Save changes"
               defaultValues={medication}
+              timeZone={timeZone}
             />
           </CardContent>
         </Card>

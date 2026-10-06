@@ -3,6 +3,8 @@ import { ChevronLeft, ChevronRight, Download } from "lucide-react";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { getDosesInRange, groupDosesByDay } from "@/lib/schedule";
+import { getZonedParts, zonedDateToInstant } from "@/lib/timezone";
+import { getUserTimeZone } from "@/lib/user-timezone";
 import {
   PERIODS,
   type Period,
@@ -24,14 +26,14 @@ import { HistoryFilters } from "./history-filters";
 
 const YEAR_OPTIONS_COUNT = 5;
 
-function buildHref(period: Period, date: Date, medicationId?: string) {
-  const params = new URLSearchParams({ period, date: toDateParam(date) });
+function buildHref(period: Period, date: Date, timeZone: string, medicationId?: string) {
+  const params = new URLSearchParams({ period, date: toDateParam(date, timeZone) });
   if (medicationId) params.set("medicationId", medicationId);
   return `/history?${params.toString()}`;
 }
 
-function buildExportHref(period: Period, date: Date, medicationId?: string) {
-  const params = new URLSearchParams({ period, date: toDateParam(date) });
+function buildExportHref(period: Period, date: Date, timeZone: string, medicationId?: string) {
+  const params = new URLSearchParams({ period, date: toDateParam(date, timeZone) });
   if (medicationId) params.set("medicationId", medicationId);
   return `/api/history/export?${params.toString()}`;
 }
@@ -49,15 +51,16 @@ export default async function HistoryPage({
   const params = await searchParams;
   const session = await auth();
   const userId = session!.user.id;
+  const timeZone = await getUserTimeZone(userId);
   const now = new Date();
 
   const period: Period = (PERIODS as string[]).includes(params.period ?? "")
     ? (params.period as Period)
     : "day";
-  let focusDate = parseDateParam(params.date, now);
+  let focusDate = parseDateParam(params.date, now, timeZone);
   if (params.year) {
     const year = Number(params.year);
-    if (Number.isInteger(year)) focusDate = withYear(focusDate, year);
+    if (Number.isInteger(year)) focusDate = withYear(focusDate, year, timeZone);
   }
   const medicationId = params.medicationId || undefined;
 
@@ -66,29 +69,31 @@ export default async function HistoryPage({
     ? allMedications.filter((m) => m.id === medicationId)
     : allMedications;
 
-  const { start, end } = getPeriodRange(period, focusDate);
+  const { start, end } = getPeriodRange(period, focusDate, timeZone);
 
   const doseLogs = await prisma.doseLog.findMany({
     where: { userId, scheduledFor: { gte: start, lt: end } },
     select: { medicationId: true, scheduledFor: true, takenAt: true },
   });
 
-  const doses = getDosesInRange(medications, doseLogs, start, end, now);
+  const doses = getDosesInRange(medications, doseLogs, start, end, now, timeZone);
 
   const prevHref = buildHref(
     period,
-    getPreviousPeriodDate(period, focusDate),
+    getPreviousPeriodDate(period, focusDate, timeZone),
+    timeZone,
     medicationId
   );
   const nextHref = buildHref(
     period,
-    getNextPeriodDate(period, focusDate),
+    getNextPeriodDate(period, focusDate, timeZone),
+    timeZone,
     medicationId
   );
 
   const yearOptions = Array.from(
     { length: YEAR_OPTIONS_COUNT },
-    (_, i) => now.getFullYear() - i
+    (_, i) => getZonedParts(now, timeZone).year - i
   );
 
   return (
@@ -103,7 +108,7 @@ export default async function HistoryPage({
           <Button
             variant="outline"
             size="sm"
-            render={<a href={buildExportHref(period, focusDate, medicationId)} />}
+            render={<a href={buildExportHref(period, focusDate, timeZone, medicationId)} />}
           >
             <Download className="size-4" />
             Export PDF
@@ -117,7 +122,7 @@ export default async function HistoryPage({
                 key={p}
                 size="sm"
                 variant={p === period ? "secondary" : "ghost"}
-                render={<Link href={buildHref(p, focusDate, medicationId)} />}
+                render={<Link href={buildHref(p, focusDate, timeZone, medicationId)} />}
               >
                 {p[0].toUpperCase() + p.slice(1)}
               </Button>
@@ -127,6 +132,7 @@ export default async function HistoryPage({
           <HistoryFilters
             period={period}
             focusDate={focusDate}
+            timeZone={timeZone}
             medicationId={medicationId}
             medications={allMedications}
             yearOptions={yearOptions}
@@ -138,7 +144,7 @@ export default async function HistoryPage({
             <ChevronLeft className="size-4" />
             Previous
           </Button>
-          <p className="font-medium">{formatPeriodLabel(period, focusDate)}</p>
+          <p className="font-medium">{formatPeriodLabel(period, focusDate, timeZone)}</p>
           <Button variant="ghost" size="sm" render={<Link href={nextHref} />}>
             Next
             <ChevronRight className="size-4" />
@@ -154,24 +160,24 @@ export default async function HistoryPage({
             ) : period === "month" ? (
               <AdherenceGrid
                 cells={buildMonthCells(
-                  groupDosesByDay(doses),
-                  focusDate.getFullYear(),
-                  focusDate.getMonth(),
-                  (dayOfMonth) =>
-                    buildHref(
+                  groupDosesByDay(doses, timeZone),
+                  getZonedParts(focusDate, timeZone).year,
+                  getZonedParts(focusDate, timeZone).month - 1,
+                  timeZone,
+                  (dayOfMonth) => {
+                    const { year, month } = getZonedParts(focusDate, timeZone);
+                    return buildHref(
                       "day",
-                      new Date(
-                        focusDate.getFullYear(),
-                        focusDate.getMonth(),
-                        dayOfMonth
-                      ),
+                      zonedDateToInstant(year, month, dayOfMonth, 0, 0, timeZone),
+                      timeZone,
                       medicationId
-                    )
+                    );
+                  }
                 )}
                 columns={7}
               />
             ) : (
-              <DoseList doses={doses} groupByDay={period === "week"} />
+              <DoseList doses={doses} groupByDay={period === "week"} timeZone={timeZone} />
             )}
           </CardContent>
         </Card>

@@ -12,6 +12,7 @@ import {
   parseDateParam,
   withYear,
 } from "@/lib/history-period";
+import { getUserTimeZone } from "@/lib/user-timezone";
 import { AdherenceReportDocument } from "./adherence-report";
 
 export async function GET(request: NextRequest) {
@@ -21,6 +22,7 @@ export async function GET(request: NextRequest) {
     return new Response("Unauthorized", { status: 401 });
   }
   const patientName = session.user.name || session.user.email || "Unknown patient";
+  const timeZone = await getUserTimeZone(userId);
 
   const searchParams = request.nextUrl.searchParams;
 
@@ -29,11 +31,11 @@ export async function GET(request: NextRequest) {
     : "day";
 
   const now = new Date();
-  let focusDate = parseDateParam(searchParams.get("date") ?? undefined, now);
+  let focusDate = parseDateParam(searchParams.get("date") ?? undefined, now, timeZone);
   const yearParam = searchParams.get("year");
   if (yearParam) {
     const year = Number(yearParam);
-    if (Number.isInteger(year)) focusDate = withYear(focusDate, year);
+    if (Number.isInteger(year)) focusDate = withYear(focusDate, year, timeZone);
   }
   const medicationId = searchParams.get("medicationId") || undefined;
 
@@ -45,16 +47,16 @@ export async function GET(request: NextRequest) {
     ? allMedications.filter((m) => m.id === medicationId)
     : allMedications;
 
-  const { start, end } = getPeriodRange(period, focusDate);
+  const { start, end } = getPeriodRange(period, focusDate, timeZone);
 
   const doseLogs = await prisma.doseLog.findMany({
     where: { userId, scheduledFor: { gte: start, lt: end } },
     select: { medicationId: true, scheduledFor: true, takenAt: true },
   });
 
-  const doses = getDosesInRange(medications, doseLogs, start, end, now);
+  const doses = getDosesInRange(medications, doseLogs, start, end, now, timeZone);
 
-  const periodLabel = formatPeriodLabel(period, focusDate);
+  const periodLabel = formatPeriodLabel(period, focusDate, timeZone);
   const medicationLabel = medicationId
     ? (allMedications.find((m) => m.id === medicationId)?.name ?? "Selected medication")
     : "All medications";
@@ -66,10 +68,11 @@ export async function GET(request: NextRequest) {
       medicationLabel,
       generatedAt: now,
       doses,
+      timeZone,
     })
   );
 
-  const filename = `adherence-${period}-${toDateParam(focusDate)}.pdf`;
+  const filename = `adherence-${period}-${toDateParam(focusDate, timeZone)}.pdf`;
 
   return new Response(new Uint8Array(buffer), {
     headers: {

@@ -1,3 +1,5 @@
+import { formatDay } from "@/lib/timezone";
+import { daysUntilExpiry } from "@/lib/expiry";
 import Link from "next/link";
 import { Plus, FileText } from "lucide-react";
 import { auth } from "@/auth";
@@ -17,8 +19,44 @@ const IMPORTANCE_STYLE: Record<string, string> = {
   CRITICAL: "bg-destructive/10 text-destructive",
 };
 
+function Field({
+  label,
+  warn = false,
+  span = "",
+  children,
+}: {
+  label: string;
+  warn?: boolean;
+  span?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className={span}>
+      <dt className="text-xs tracking-wide text-muted-foreground uppercase">{label}</dt>
+      <dd className={`mt-0.5 font-medium ${warn ? "text-amber-700 dark:text-amber-400" : ""} ${span ? "whitespace-nowrap" : ""}`}>{children}</dd>
+    </div>
+  );
+}
+
+function isLowStock(
+  med: { quantityAvailable: number; originalQuantity: number },
+  thresholdPercent: number
+) {
+  return med.originalQuantity > 0 && (med.quantityAvailable / med.originalQuantity) * 100 <= thresholdPercent;
+}
+
+function isExpiringSoon(expiryDate: Date, now: Date, timeZone: string, daysBefore: number) {
+  return daysUntilExpiry(expiryDate, now, timeZone) <= daysBefore;
+}
+
 export default async function MedicationsPage() {
   const session = await auth();
+  const user = await prisma.user.findUniqueOrThrow({
+    where: { id: session!.user.id },
+    select: { timeZone: true, lowStockThresholdPercent: true, expiryAlertDaysBefore: true },
+  });
+  const { timeZone, lowStockThresholdPercent, expiryAlertDaysBefore } = user;
+  const now = new Date();
   const medications = await prisma.medication.findMany({
     where: { userId: session!.user.id },
     orderBy: { createdAt: "desc" },
@@ -55,9 +93,9 @@ export default async function MedicationsPage() {
                     <img
                       src={med.imagePath}
                       alt={med.name}
-                      width={64}
-                      height={64}
-                      className="size-16 shrink-0 rounded-lg object-cover ring-1 ring-foreground/10"
+                      width={80}
+                      height={80}
+                      className="size-20 shrink-0 rounded-lg object-cover ring-1 ring-foreground/10"
                     />
                   )}
                   <div className="flex-1">
@@ -67,29 +105,37 @@ export default async function MedicationsPage() {
                         {med.importance}
                       </Badge>
                     </div>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {med.type} &middot; {med.amountPerDose} {med.unit} per
-                      dose &middot; {med.times.join(", ")}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      Days:{" "}
-                      {med.daysOfWeek.length === 0
-                        ? "Every day"
-                        : med.daysOfWeek
-                            .map((d) => DAYS_OF_WEEK[d].label)
-                            .join(", ")}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      Stock: {med.quantityAvailable} {med.unit}
-                      {med.expiryDate &&
-                        ` · Expires ${med.expiryDate.toLocaleDateString()}`}
-                    </p>
+
+                    <dl className="mt-3 grid grid-cols-2 gap-x-6 gap-y-3 text-sm sm:grid-cols-4">
+                      <Field label="Type">{med.type}</Field>
+                      <Field label="Dose">
+                        {med.amountPerDose} {med.unit}
+                      </Field>
+                      <Field label="Stock" warn={isLowStock(med, lowStockThresholdPercent)}>
+                        {med.quantityAvailable} {med.unit}
+                      </Field>
+                      {med.expiryDate && (
+                        <Field
+                          label="Expires"
+                          warn={isExpiringSoon(med.expiryDate, now, timeZone, expiryAlertDaysBefore)}
+                        >
+                          {formatDay(med.expiryDate, timeZone)}
+                        </Field>
+                      )}
+                      <Field label="Time">{med.times.join(", ")}</Field>
+                      <Field label="Days" span="col-span-2 sm:col-span-3">
+                        {med.daysOfWeek.length === 0
+                          ? "Every day"
+                          : med.daysOfWeek.map((d) => DAYS_OF_WEEK[d].label).join(", ")}
+                      </Field>
+                    </dl>
+
                     {med.prescriptionPath && (
                       <a
                         href={med.prescriptionPath}
                         target="_blank"
                         rel="noreferrer"
-                        className="mt-1 inline-flex items-center gap-1 text-sm text-primary hover:underline"
+                        className="mt-3 inline-flex items-center gap-1 text-sm text-primary hover:underline"
                       >
                         <FileText className="size-3.5" />
                         View prescription
