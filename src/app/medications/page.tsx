@@ -14,9 +14,9 @@ import { DeleteMedicationButton } from "./delete-button";
 
 const IMPORTANCE_STYLE: Record<string, string> = {
   LOW: "bg-muted text-muted-foreground",
-  MEDIUM: "bg-secondary text-secondary-foreground",
-  HIGH: "bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-400",
-  CRITICAL: "bg-destructive/10 text-destructive",
+  MEDIUM: "bg-yellow-300 text-yellow-900 dark:bg-yellow-300 dark:text-yellow-900",
+  HIGH: "bg-destructive/10 text-destructive",
+  CRITICAL: "bg-red-700 text-white dark:bg-red-700 dark:text-white",
 };
 
 function Field({
