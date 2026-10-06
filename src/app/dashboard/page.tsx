@@ -2,7 +2,7 @@ import Link from "next/link";
 import { CheckCircle2, AlertTriangle, Clock } from "lucide-react";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { getTodaysDoses, formatDoseTiming, type DoseStatus } from "@/lib/schedule";
+import { getTodaysDoses, type DoseStatus } from "@/lib/schedule";
 import { formatTime, startOfDayInZone } from "@/lib/timezone";
 import { getUserTimeZone } from "@/lib/user-timezone";
 import { AppNav } from "@/components/app-nav";
@@ -113,11 +113,6 @@ export default async function DashboardPage() {
                             <StatusIcon className="size-3.5" />
                             {status.label}
                           </Badge>
-                          {dose.status === "taken" && dose.takenAt && (
-                            <span className="text-xs text-muted-foreground">
-                              {formatDoseTiming(dose.scheduledFor, dose.takenAt)}
-                            </span>
-                          )}
                         </div>
                         {dose.status !== "taken" && (
                           <MarkAsTakenButton
