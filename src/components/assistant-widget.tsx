@@ -1,13 +1,17 @@
 "use client";
 
 import { useRef, useState, useTransition, useEffect } from "react";
+import { usePathname } from "next/navigation";
 import { Stethoscope, X, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { askAdherenceAssistant, type ChatMessage } from "@/app/assistant-actions";
 import { Markdown } from "@/components/markdown";
 
+const HIDDEN_ON = ["/", "/login", "/signup"];
+
 export function AssistantWidget() {
+  const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -33,6 +37,8 @@ export function AssistantWidget() {
       setMessages((prev) => [...prev, { role: "assistant", content }]);
     });
   }
+
+  if (HIDDEN_ON.includes(pathname)) return null;
 
   return (
     <div className="fixed right-6 bottom-6 z-50 flex flex-col items-end gap-3">
