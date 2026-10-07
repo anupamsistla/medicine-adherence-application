@@ -21,6 +21,8 @@ model User {
   lowStockThresholdPercent Int           @default(10)
   expiryAlertDaysBefore    Int           @default(7)
   timeZone                 String        @default("UTC")
+  passwordResetTokenHash   String?
+  passwordResetExpiresAt   DateTime?
   createdAt                DateTime      @default(now())
   updatedAt                DateTime      @updatedAt
   medications              Medication[]
