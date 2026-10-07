@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import Link from "next/link";
-import { Pill } from "lucide-react";
+import { ArrowLeft, Pill } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,6 +18,13 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-full flex-1 items-center justify-center bg-muted/30 px-6 py-12">
       <div className="w-full max-w-sm">
+        <Link
+          href="/"
+          className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <ArrowLeft className="size-4" />
+          Back to home
+        </Link>
         <div className="mb-6 flex items-center justify-center gap-2 font-semibold">
           <Pill className="size-5 text-primary" />
           MedTrack
